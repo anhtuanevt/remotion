@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Job {
+  id           String    @id @default(cuid())
+  status       JobStatus @default(DRAFT)
+  template     String    @default("news")
+  language     String    @default("vi")
+  ttsProvider  String    @default("vbee")
+  ttsVoiceId   String    @default("hn_female_ngochuyen_full_48k-fhg")
+  segments     Segment[]
+  outputUrl    String?
+  errorMessage String?
+  motionSpec   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Segment {
+  id            String   @id @default(cuid())
+  jobId         String
+  job           Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  order         Int
+  text          String
+  subtitle      String
+  duration      Float
+  startTime     Float
+  audioUrl      String?
+  audioCacheKey String?
+  imageUrl      String?
+  imagePrompt   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum JobStatus {
+  DRAFT
+  RENDERING
+  DONE
+  ERROR
+}

@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npm run:*)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(lsof -ti:3000)",
+      "Bash(curl:*)",
+      "Bash(python3 -c \"import sys, json; d = sys.stdin.read\\(\\); print\\(d[:200] if '<' in d else d\\)\")",
+      "Bash(python3 -c 'import sys, json; d = sys.stdin.read\\(\\);:*)",
+      "Bash(node:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(ls -la /Users/bruce/Desktop/remotion_video/video-gen/*.db)",
+      "Bash(sqlite3 /Users/bruce/Desktop/remotion_video/video-gen/dev.db \".tables\")",
+      "Bash(kill 37194 37209)",
+      "Bash(grep -v \"^$\")",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"TSC_EXIT:$?\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(ls /Users/bruce/Desktop/remotion_video/video-gen/.env*)",
+      "Bash(npm list:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(pkill -f \"next dev\")"
+    ]
+  }
+}

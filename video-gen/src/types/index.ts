@@ -7,6 +7,7 @@ export type TemplateId =
   | 'splitv' | 'gradient' | 'meme' | 'redacted' | 'sports'
   | 'tiktokcaption' | 'hook' | 'wordpop'
   | 'dynamic' | 'chatbubble'
+  | 'particletext'
 
 export type TTSProvider = 'vbee' | 'elevenlabs' | 'edge'
 

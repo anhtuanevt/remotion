@@ -33,6 +33,7 @@ export { HookTemplate }          from './HookTemplate'
 export { WordPopTemplate }       from './WordPopTemplate'
 export { DynamicTemplate }       from './DynamicTemplate'
 export { ChatBubbleTemplate }    from './ChatBubbleTemplate'
+export { ParticleTextTemplate }  from './ParticleTextTemplate'
 
 export const TEMPLATES: TemplateConfig[] = [
   // ── 16:9 ngang ──────────────────────────────────────────────────────────────
@@ -69,6 +70,8 @@ export const TEMPLATES: TemplateConfig[] = [
   { id: 'tiktokcaption', name: 'TikTok Caption',   description: 'Auto-caption vàng từng từ, viral TikTok', aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '🎯', tags: ['tiktok', 'caption', 'viral'] },
   { id: 'hook',          name: 'Hook Viral',        description: 'Hook đầu dramatic, "watch till end"',     aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '🔥', tags: ['tiktok', 'hook', 'viral'] },
   { id: 'wordpop',       name: 'Word Pop',          description: 'MrBeast style, từng từ bounce nhiều màu', aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '💥', tags: ['tiktok', 'energy', 'viral'] },
+  // ── Three.js 3D ────────────────────────────────────────────────────────────
+  { id: 'particletext', name: 'Particle Text 3D', description: '3D particles + orbital ring, viral TikTok', aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '✨', tags: ['threejs', '3d', 'viral', 'tiktok'] },
   // ── AI Dynamic ─────────────────────────────────────────────────────────────
   { id: 'dynamic',     name: 'AI Dynamic',      description: 'Template sinh bởi AI — hoàn toàn tuỳ chỉnh được',      aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '✨', tags: ['ai', 'custom', 'dynamic'] },
   { id: 'chatbubble',  name: 'Chat Bubbles AI',  description: 'Hội thoại 2 người — AI parse từ messages[] JSON',       aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '💬', tags: ['chat', 'conversation', 'ai'] },

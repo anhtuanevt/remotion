@@ -11,6 +11,7 @@ import {
   RedactedTemplate, SportsTemplate,
   TikTokCaptionTemplate, HookTemplate, WordPopTemplate,
   DynamicTemplate, ChatBubbleTemplate,
+  ParticleTextTemplate,
 } from './templates'
 
 const COMPONENTS: Record<string, React.FC<any>> = {
@@ -26,8 +27,9 @@ const COMPONENTS: Record<string, React.FC<any>> = {
   gradient: GradientTemplate, meme: MemeTemplate, redacted: RedactedTemplate,
   sports: SportsTemplate,
   tiktokcaption: TikTokCaptionTemplate, hook: HookTemplate, wordpop: WordPopTemplate,
-  dynamic:     DynamicTemplate,
-  chatbubble:  ChatBubbleTemplate,
+  dynamic:      DynamicTemplate,
+  chatbubble:   ChatBubbleTemplate,
+  particletext: ParticleTextTemplate,
 }
 
 export const RemotionRoot = () => (

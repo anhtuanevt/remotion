@@ -1,14 +1,17 @@
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { expandIdea, generateImagePrompts, generateVideoFromDescription, generateMotionSpec } from '@/lib/anthropic'
+import { expandIdea, generateImagePrompts, generateVideoFromDescription, generateMotionSpec, normalizeWithAI,
+         generateViralScript, generateChatScript, generateEducationalScript, generateCinematicScript,
+         generateCustomScript } from '@/lib/anthropic'
 import { parseTranscript } from '@/lib/parser'
-import { isStructuredPrompt, parseStructuredPrompt } from '@/lib/structured-prompt'
+import { isStructuredPrompt, isRawJson, parseStructuredPrompt } from '@/lib/structured-prompt'
 import { detectDefaultProvider, DEFAULT_VBEE_VOICE } from '@/lib/tts'
 import { TEMPLATES } from '@/lib/template-config'
+import { getStudio } from '@/studios'
 
 const Body = z.object({
-  type:        z.enum(['transcript', 'idea', 'describe']),
-  content:     z.string().min(1).max(20000),
+  type:        z.enum(['transcript', 'idea', 'describe', 'studio']).default('describe'),
+  content:     z.string().min(1).max(20000).optional(),
   language:    z.string().default('vi'),
   template:    z.string().default('news'),
   ttsProvider: z.enum(['vbee', 'elevenlabs', 'edge']).optional(),
@@ -17,6 +20,15 @@ const Body = z.object({
   platform:    z.enum(['tiktok', 'youtube', 'instagram']).optional(),
   tone:        z.string().optional(),
   durationSec: z.number().min(10).max(600).optional(),
+  // Studio fields
+  studioId:       z.string().optional(),
+  topic:          z.string().optional(),
+  speakerAName:   z.string().optional(),
+  speakerARole:   z.string().optional(),
+  speakerBName:   z.string().optional(),
+  speakerBRole:   z.string().optional(),
+  targetAudience: z.string().optional(),
+  imageStyle:     z.string().optional(),
 })
 
 export async function POST(req: Request) {
@@ -27,13 +39,21 @@ export async function POST(req: Request) {
     const ttsVoiceId  = body.ttsVoiceId  ?? DEFAULT_VBEE_VOICE
 
     // ── Structured JSON prompt (scenes[] with per-scene keywords) ──────────────
-    if (isStructuredPrompt(body.content)) {
-      console.log('[create] Detected structured JSON prompt')
-      const { segments, motionSpec, topic } = parseStructuredPrompt(body.content)
-      console.log('[create] Structured:', segments.length, 'scenes, bgType:', motionSpec.bgType)
+    // ── Helper: create job from parsed structured scenes ─────────────────────
+    const createJobFromStructured = async (normalizedContent: string, sourceDesc: string) => {
+      const { segments, motionSpec, topic } = parseStructuredPrompt(normalizedContent)
+      if (segments.length === 0) throw new Error('No scenes could be extracted from the input JSON')
+
+      // Detect chat format: majority of texts start with [A] or [B]
+      const chatCount = segments.filter(s => /^\[[AB]\]/.test(s.text)).length
+      const isChatFmt = chatCount > segments.length / 2
+      const template  = isChatFmt ? 'chatbubble' : 'dynamic'
+
+      console.log(`[create] ${sourceDesc}: ${segments.length} scenes, template=${template}, bgType=${motionSpec.bgType}`)
+
       const job = await db.job.create({
         data: {
-          template:   'dynamic',
+          template,
           language:   body.language,
           ttsProvider,
           ttsVoiceId,
@@ -50,11 +70,126 @@ export async function POST(req: Request) {
       return Response.json({
         jobId:         job.id,
         segments:      job.segments,
-        template:      'dynamic',
-        templateName:  'AI Dynamic',
-        reasoning:     topic ? `Structured prompt: "${topic}"` : 'Structured JSON prompt',
+        template,
+        templateName:  isChatFmt ? 'Chat Bubbles AI' : 'AI Dynamic',
+        reasoning:     topic || sourceDesc,
         hasMotionSpec: true,
       })
+    }
+
+    // ── Path 0: Studio pipeline ───────────────────────────────────────────────
+    if (body.studioId) {
+      const studio = getStudio(body.studioId)
+      if (!studio) return Response.json({ error: `Unknown studioId: ${body.studioId}` }, { status: 400 })
+
+      const topic      = body.topic ?? body.content ?? ''
+      const durationSec = body.durationSec ?? 60
+      const language   = body.language
+
+      let scenesJson: string
+
+      if (body.studioId === 'viral-short') {
+        const r = await generateViralScript({ topic, durationSec, language })
+        scenesJson = r.scenesJson
+      } else if (body.studioId === 'chat-podcast') {
+        const r = await generateChatScript({
+          topic, durationSec, language,
+          speakerAName: body.speakerAName ?? 'Host',
+          speakerARole: body.speakerARole ?? 'Host',
+          speakerBName: body.speakerBName ?? 'Guest',
+          speakerBRole: body.speakerBRole ?? 'Guest',
+        })
+        scenesJson = r.scenesJson
+      } else if (body.studioId === 'educational') {
+        const r = await generateEducationalScript({
+          topic, durationSec, language,
+          targetAudience: body.targetAudience ?? 'general audience',
+        })
+        scenesJson = r.scenesJson
+      } else if (body.studioId === 'cinematic') {
+        const r = await generateCinematicScript({ topic, durationSec, language })
+        scenesJson = r.scenesJson
+      } else if (body.studioId === 'custom') {
+        const r = await generateCustomScript({
+          content:    topic,
+          imageStyle: body.imageStyle,
+          durationSec,
+          language,
+        })
+        scenesJson = r.scenesJson
+      } else {
+        // Fallback for unknown studios: describe flow
+        scenesJson = ''
+      }
+
+      if (scenesJson) {
+        // Parse scenes but override motionSpec with studio's default
+        const { segments, motionSpec: parsedSpec } = parseStructuredPrompt(scenesJson)
+        if (segments.length === 0) throw new Error('No scenes generated by studio')
+
+        const chatCount = segments.filter(s => /^\[[AB]\]/.test(s.text)).length
+        const isChatFmt = chatCount > segments.length / 2
+        const template  = isChatFmt ? 'chatbubble' : 'dynamic'
+
+        // Studio's defaultMotionSpec takes priority (override AI-parsed spec)
+        const finalMotionSpec = { ...parsedSpec, ...studio.defaultMotionSpec }
+
+        if (process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY) {
+          try {
+            const prompts = await generateImagePrompts(segments, language, topic)
+            prompts.forEach((p, i) => { if (p) segments[i].imagePrompt = p })
+          } catch (err) {
+            console.warn('[create/studio] generateImagePrompts failed:', err)
+          }
+        }
+
+        const job = await db.job.create({
+          data: {
+            template,
+            language,
+            ttsProvider,
+            ttsVoiceId,
+            motionSpec: JSON.stringify(finalMotionSpec),
+            segments: {
+              create: segments.map(s => ({
+                order: s.order, text: s.text, subtitle: s.subtitle,
+                duration: s.duration, startTime: s.startTime, imagePrompt: s.imagePrompt,
+              })),
+            },
+          },
+          include: { segments: { orderBy: { order: 'asc' } } },
+        })
+
+        return Response.json({
+          jobId:         job.id,
+          segments:      job.segments,
+          template,
+          templateName:  studio.name,
+          reasoning:     `Generated via ${studio.name} studio`,
+          hasMotionSpec: true,
+        })
+      }
+    }
+
+    // ── Path 1: Standard scenes[] JSON ───────────────────────────────────────
+    if (body.content && isStructuredPrompt(body.content)) {
+      return createJobFromStructured(body.content, 'Structured JSON prompt')
+    }
+
+    // For non-studio paths, content is required
+    const content = body.content ?? body.topic ?? ''
+    if (!content) return Response.json({ error: 'content or topic is required' }, { status: 400 })
+
+    // ── Path 2: Unknown JSON format → normalize via AI ────────────────────────
+    if (isRawJson(content)) {
+      console.log('[create] Unknown JSON — normalizing with AI')
+      try {
+        const normalized = await normalizeWithAI(content)
+        return createJobFromStructured(normalized, 'AI-normalized JSON')
+      } catch (err) {
+        console.warn('[create] normalizeWithAI failed, falling back to describe flow:', err)
+        // fall through to normal describe/transcript flow below
+      }
     }
 
     let transcript    = ''
@@ -72,7 +207,7 @@ export async function POST(req: Request) {
       }
       // AI tự chọn template + viết script tối ưu
       const result = await generateVideoFromDescription({
-        description: body.content,
+        description: content,
         platform:    body.platform    ?? 'tiktok',
         tone:        body.tone        ?? 'viral',
         durationSec: body.durationSec ?? 60,
@@ -85,12 +220,12 @@ export async function POST(req: Request) {
       chosenTemplate = result.template
       reasoning      = result.reasoning
       // Dùng description gốc của user làm style hint cho ảnh
-      imageStyle = body.content
+      imageStyle = content
 
       // Sinh MotionSpec song song (không block nếu thất bại)
       try {
         const spec = await generateMotionSpec({
-          description: body.content,
+          description: content,
           platform:    body.platform ?? 'tiktok',
           tone:        body.tone     ?? 'viral',
         })
@@ -99,9 +234,9 @@ export async function POST(req: Request) {
         console.warn('[create] generateMotionSpec failed:', e)
       }
     } else if (body.type === 'idea') {
-      transcript = await expandIdea(body.content, body.language)
+      transcript = await expandIdea(content, body.language)
     } else {
-      transcript = body.content
+      transcript = content
     }
 
     const segments = parseTranscript(transcript, body.language)
@@ -141,8 +276,9 @@ export async function POST(req: Request) {
       reasoning,
       hasMotionSpec: !!motionSpecJson,
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[/api/create]', err)
-    return Response.json({ error: err.message }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    return Response.json({ error: message }, { status: 500 })
   }
 }

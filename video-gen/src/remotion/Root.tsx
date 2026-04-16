@@ -10,7 +10,7 @@ import {
   RetroTemplate, SplitVTemplate, GradientTemplate, MemeTemplate,
   RedactedTemplate, SportsTemplate,
   TikTokCaptionTemplate, HookTemplate, WordPopTemplate,
-  DynamicTemplate,
+  DynamicTemplate, ChatBubbleTemplate,
 } from './templates'
 
 const COMPONENTS: Record<string, React.FC<any>> = {
@@ -26,7 +26,8 @@ const COMPONENTS: Record<string, React.FC<any>> = {
   gradient: GradientTemplate, meme: MemeTemplate, redacted: RedactedTemplate,
   sports: SportsTemplate,
   tiktokcaption: TikTokCaptionTemplate, hook: HookTemplate, wordpop: WordPopTemplate,
-  dynamic: DynamicTemplate,
+  dynamic:     DynamicTemplate,
+  chatbubble:  ChatBubbleTemplate,
 }
 
 export const RemotionRoot = () => (

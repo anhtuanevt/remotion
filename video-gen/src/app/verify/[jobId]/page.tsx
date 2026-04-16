@@ -12,150 +12,15 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { VoiceSelector } from '@/components/VoiceSelector'
 import {
-  TEMPLATES,
-  NewsTemplate, EduTemplate, PodcastTemplate, TechTemplate,
-  StoryTemplate, MinimalTemplate, KidsTemplate, DocumentaryTemplate,
-  SocialTemplate, WhiteboardTemplate,
-  ReelsTemplate, StoriesTemplate, KaraokeTemplate, NeonTemplate,
-  BreakingTemplate, QuoteTemplate, DataStatsTemplate, LessonTemplate,
-  MagazineTemplate, CountdownTemplate, ChatTemplate, HeadlineTemplate,
-  RetroTemplate, SplitVTemplate, GradientTemplate, MemeTemplate,
-  RedactedTemplate, SportsTemplate,
-  TikTokCaptionTemplate, HookTemplate, WordPopTemplate,
-  DynamicTemplate,
+  DynamicTemplate, ChatBubbleTemplate,
 } from '@/remotion/templates'
+import { TEMPLATES } from '@/lib/template-config'
 import type { Job, Segment, TTSProvider, MotionSpec } from '@/types'
 import { DEFAULT_MOTION_SPEC } from '@/types'
 
 const COMPONENTS: Record<string, React.FC<any>> = {
-  news: NewsTemplate, edu: EduTemplate, podcast: PodcastTemplate,
-  tech: TechTemplate, story: StoryTemplate, minimal: MinimalTemplate,
-  kids: KidsTemplate, documentary: DocumentaryTemplate,
-  social: SocialTemplate, whiteboard: WhiteboardTemplate,
-  reels: ReelsTemplate, stories: StoriesTemplate, karaoke: KaraokeTemplate,
-  neon: NeonTemplate, breaking: BreakingTemplate, quote: QuoteTemplate,
-  datastats: DataStatsTemplate, lesson: LessonTemplate,
-  magazine: MagazineTemplate, countdown: CountdownTemplate, chat: ChatTemplate,
-  headline: HeadlineTemplate, retro: RetroTemplate, splitv: SplitVTemplate,
-  gradient: GradientTemplate, meme: MemeTemplate, redacted: RedactedTemplate,
-  sports: SportsTemplate,
-  tiktokcaption: TikTokCaptionTemplate, hook: HookTemplate, wordpop: WordPopTemplate,
-  dynamic: DynamicTemplate,
-}
-
-// ─── Template switcher ────────────────────────────────────────────────────────
-
-const LIBRARY_GROUPS = [
-  { label: 'TikTok Viral', ids: ['tiktokcaption', 'hook', 'wordpop', 'neon', 'reels', 'social'] },
-  { label: 'YouTube / Ngang', ids: ['news', 'edu', 'podcast', 'tech', 'story', 'documentary', 'minimal', 'whiteboard', 'kids'] },
-  { label: 'Stories / Dọc', ids: ['stories', 'breaking', 'quote', 'datastats', 'lesson', 'magazine', 'countdown', 'chat', 'headline', 'retro', 'splitv', 'gradient', 'meme', 'redacted', 'sports'] },
-]
-
-function TemplateSwitcher({
-  activeTemplate, onSelect,
-}: {
-  activeTemplate: string
-  onSelect: (id: string) => void
-}) {
-  const [libOpen, setLibOpen] = useState(false)
-  const [activeGroup, setActiveGroup] = useState(0)
-
-  const dynamicConfig  = TEMPLATES.find(t => t.id === 'dynamic')!
-  const activeConfig   = TEMPLATES.find(t => t.id === activeTemplate)
-  const isNonDynamic   = activeTemplate !== 'dynamic'
-
-  return (
-    <div className="flex-shrink-0 bg-gray-800 border-b border-gray-700">
-      <div className="flex items-center gap-2 px-4 py-2">
-        {/* Dynamic — always visible, prominent */}
-        <button
-          onClick={() => onSelect('dynamic')}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold flex-shrink-0 transition-all ${
-            activeTemplate === 'dynamic'
-              ? 'bg-purple-600 text-white ring-2 ring-purple-400'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-          }`}
-        >
-          <span>✨</span>
-          <span>AI Dynamic</span>
-        </button>
-
-        <div className="w-px h-6 bg-gray-600 flex-shrink-0" />
-
-        {/* Currently active non-dynamic template (if any) */}
-        {isNonDynamic && activeConfig && (
-          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium flex-shrink-0">
-            <span>{activeConfig.thumbnail}</span>
-            <span>{activeConfig.name}</span>
-            <button
-              onClick={() => onSelect('dynamic')}
-              className="ml-1 opacity-70 hover:opacity-100 text-xs"
-              title="Quay lại Dynamic"
-            >✕</button>
-          </div>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Library button */}
-        <button
-          onClick={() => setLibOpen(v => !v)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 transition-colors ${
-            libOpen ? 'bg-gray-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'
-          }`}
-        >
-          <span>🗂</span>
-          <span>Thư viện template</span>
-          <span className="opacity-50">{libOpen ? '▲' : '▼'}</span>
-        </button>
-      </div>
-
-      {/* Library panel */}
-      {libOpen && (
-        <div className="border-t border-gray-700 bg-gray-850 px-4 pb-3">
-          {/* Group tabs */}
-          <div className="flex gap-1 pt-2 pb-2">
-            {LIBRARY_GROUPS.map((g, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveGroup(i)}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  activeGroup === i
-                    ? 'bg-gray-600 text-white'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Template chips */}
-          <div className="flex flex-wrap gap-1.5">
-            {LIBRARY_GROUPS[activeGroup].ids.map(id => {
-              const t = TEMPLATES.find(x => x.id === id)
-              if (!t) return null
-              return (
-                <button
-                  key={id}
-                  onClick={() => { onSelect(id); setLibOpen(false) }}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    activeTemplate === id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                  }`}
-                >
-                  <span>{t.thumbnail}</span>
-                  <span>{t.name}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
+  dynamic:    DynamicTemplate,
+  chatbubble: ChatBubbleTemplate,
 }
 
 // ─── Sortable segment card ────────────────────────────────────────────────────
@@ -593,15 +458,12 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
   const { jobId } = use(params)
   const router       = useRouter()
   const searchParams = useSearchParams()
-  const aiReasoning    = searchParams.get('reasoning')
-  const aiTemplateName = searchParams.get('templateName')
-  const aiTemplate     = searchParams.get('template')        // 'dynamic' nếu có MotionSpec
-  const aiPickedTemplate = searchParams.get('aiTemplate')    // template AI thực sự chọn (hook, neon...)
+  const aiTemplate = searchParams.get('template') ?? 'dynamic'
 
   const [job, setJob]                             = useState<Job | null>(null)
   const [segments, setSegments]                   = useState<Segment[]>([])
   const [selectedSegment, setSelectedSegment]     = useState<Segment | null>(null)
-  const [activeTemplate, setActiveTemplate]       = useState<string>(aiTemplate ?? 'news')
+  const [activeTemplate, setActiveTemplate]       = useState<string>(aiTemplate)
   const [renderLoading, setRenderLoading]         = useState(false)
   const [audioGenLoading, setAudioGenLoading]     = useState(false)
   const [audioGenProgress, setAudioGenProgress]   = useState(0)
@@ -609,7 +471,7 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
 
   // MotionSpec (for DynamicTemplate fine-tuning)
   const [motionSpec, setMotionSpec]   = useState<MotionSpec>(DEFAULT_MOTION_SPEC)
-  const [rightTab, setRightTab]       = useState<'edit' | 'style'>(aiTemplate === 'dynamic' ? 'style' : 'edit')
+  const [rightTab, setRightTab]       = useState<'edit' | 'style'>('style')
   const saveSpecTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Chat
@@ -641,10 +503,8 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
         if (!initialized) {
           if (data.motionSpec) {
             setMotionSpec(data.motionSpec)
-            setActiveTemplate(aiTemplate === 'dynamic' ? 'dynamic' : data.template)
-          } else {
-            setActiveTemplate(aiTemplate ?? data.template)
           }
+          setActiveTemplate(data.template)
           initialized = true
 
           // Auto-fetch images if segments have imagePrompts but no imageUrls
@@ -876,7 +736,7 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
   }
 
   const templateConfig = TEMPLATES.find(t => t.id === activeTemplate) ?? TEMPLATES[0]
-  const ActiveComponent = COMPONENTS[activeTemplate] ?? NewsTemplate
+  const ActiveComponent = COMPONENTS[activeTemplate] ?? DynamicTemplate
 
   const totalDuration = segments.reduce((s, seg) => s + seg.duration, 0)
   const totalFrames   = Math.max(30, Math.ceil(totalDuration * templateConfig.fps))
@@ -902,37 +762,6 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
         </div>
       )}
 
-      {/* AI recommendation banner */}
-      {aiReasoning && (
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 flex items-center gap-3 flex-shrink-0">
-          <span className="text-lg flex-shrink-0">🤖</span>
-          <div className="flex-1 text-sm min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              {aiTemplate === 'dynamic' ? (
-                <>
-                  <span className="font-semibold">✨ AI Dynamic Style đang active</span>
-                  <span className="opacity-60">·</span>
-                  <span className="opacity-80 text-xs">{aiReasoning}</span>
-                  {aiPickedTemplate && (
-                    <button
-                      onClick={() => setActiveTemplate(aiPickedTemplate)}
-                      className="ml-auto flex-shrink-0 text-xs bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded-full transition-colors"
-                    >
-                      Xem template gốc: {aiTemplateName}
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <span className="font-semibold">AI đã chọn: {aiTemplateName}</span>
-                  <span className="mx-2 opacity-60">—</span>
-                  <span className="opacity-90">{aiReasoning}</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between flex-shrink-0">
@@ -1021,12 +850,6 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
 
         {/* Center panel — Player */}
         <main className="flex-1 flex flex-col overflow-hidden bg-gray-900">
-          {/* Template switcher — redesigned */}
-          <TemplateSwitcher
-            activeTemplate={activeTemplate}
-            onSelect={setActiveTemplate}
-          />
-
           {/* Player */}
           <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
             <div
@@ -1126,8 +949,8 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
               <StylePanel
                 motionSpec={motionSpec}
                 onChange={updateMotionSpec}
-                isDynamic={activeTemplate === 'dynamic'}
-                onSwitchToDynamic={() => setActiveTemplate('dynamic')}
+                isDynamic={true}
+                onSwitchToDynamic={() => {}}
               />
             )}
           </div>

@@ -80,6 +80,18 @@ export function isStructuredPrompt(content: string): boolean {
   }
 }
 
+// Returns true for any valid JSON object/array (even unsupported formats)
+export function isRawJson(content: string): boolean {
+  try {
+    const trimmed = content.trim()
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return false
+    JSON.parse(sanitizeJson(trimmed))
+    return true
+  } catch {
+    return false
+  }
+}
+
 // ─── Image prompt builder ─────────────────────────────────────────────────────
 
 function buildImagePrompt(scene: StructuredScene, globalStyle?: string): string {

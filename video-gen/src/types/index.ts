@@ -6,7 +6,7 @@ export type TemplateId =
   | 'magazine' | 'countdown' | 'chat' | 'headline' | 'retro'
   | 'splitv' | 'gradient' | 'meme' | 'redacted' | 'sports'
   | 'tiktokcaption' | 'hook' | 'wordpop'
-  | 'dynamic'
+  | 'dynamic' | 'chatbubble'
 
 export type TTSProvider = 'vbee' | 'elevenlabs' | 'edge'
 

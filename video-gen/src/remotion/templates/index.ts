@@ -32,6 +32,7 @@ export { TikTokCaptionTemplate } from './TikTokCaptionTemplate'
 export { HookTemplate }          from './HookTemplate'
 export { WordPopTemplate }       from './WordPopTemplate'
 export { DynamicTemplate }       from './DynamicTemplate'
+export { ChatBubbleTemplate }    from './ChatBubbleTemplate'
 
 export const TEMPLATES: TemplateConfig[] = [
   // ── 16:9 ngang ──────────────────────────────────────────────────────────────
@@ -69,5 +70,6 @@ export const TEMPLATES: TemplateConfig[] = [
   { id: 'hook',          name: 'Hook Viral',        description: 'Hook đầu dramatic, "watch till end"',     aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '🔥', tags: ['tiktok', 'hook', 'viral'] },
   { id: 'wordpop',       name: 'Word Pop',          description: 'MrBeast style, từng từ bounce nhiều màu', aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '💥', tags: ['tiktok', 'energy', 'viral'] },
   // ── AI Dynamic ─────────────────────────────────────────────────────────────
-  { id: 'dynamic', name: 'AI Dynamic', description: 'Template sinh bởi AI — hoàn toàn tuỳ chỉnh được', aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '✨', tags: ['ai', 'custom', 'dynamic'] },
+  { id: 'dynamic',     name: 'AI Dynamic',      description: 'Template sinh bởi AI — hoàn toàn tuỳ chỉnh được',      aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '✨', tags: ['ai', 'custom', 'dynamic'] },
+  { id: 'chatbubble',  name: 'Chat Bubbles AI',  description: 'Hội thoại 2 người — AI parse từ messages[] JSON',       aspect: '9:16', fps: 30, width: 1080, height: 1920, thumbnail: '💬', tags: ['chat', 'conversation', 'ai'] },
 ]

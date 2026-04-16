@@ -295,3 +295,257 @@ Output ONLY the JSON object, no markdown, no explanation.`, 512)
     return { ...DEFAULT_MOTION_SPEC }
   }
 }
+
+// ─── Studio-specific script generators ───────────────────────────────────────
+// Each returns a structured JSON string { scenes: [...] } ready for parseStructuredPrompt
+
+export interface StudioScriptResult {
+  scenesJson: string   // raw JSON string → pass to parseStructuredPrompt
+}
+
+export async function generateViralScript(params: {
+  topic: string
+  durationSec: number
+  language: string
+}): Promise<StudioScriptResult> {
+  const { topic, durationSec, language } = params
+  const langLabel   = language === 'vi' ? 'Vietnamese' : 'English'
+  const sceneCount  = Math.max(8, Math.min(20, Math.round(durationSec / 5)))
+
+  const raw = await callLLM(`You are a viral TikTok/Reels scriptwriter. Write a high-energy short video script.
+
+Language: ${langLabel}
+Topic: ${topic}
+Target duration: ${durationSec} seconds → aim for exactly ${sceneCount} scenes
+Style: fast cuts, punchy sentences, MrBeast energy, word-pop animation
+
+Rules:
+- Each scene = 1 short punchy sentence (5–15 words max)
+- Scene 1 MUST be a shocking hook question or statement (≤10 words)
+- Scene 2-3: build on the hook, intensify curiosity
+- Middle scenes: deliver facts/value fast — each = one surprising idea
+- Last 2 scenes: callback to hook + strong CTA ("Follow for more", "Comment below", etc.)
+- Use ${langLabel} — conversational, not formal
+- "sceneKeywords": 3–5 English words for background image (objects, mood, setting)
+- "visualMetaphor": optional — describe the vibe of the shot (e.g. "close-up brain neurons firing")
+
+Output ONLY valid JSON in this exact format:
+{
+  "videoTopic": "${topic}",
+  "globalImageStyle": "dark dramatic cinematic neon",
+  "scenes": [
+    { "text": "...", "sceneKeywords": "...", "visualMetaphor": "..." }
+  ]
+}`, 1500)
+
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('generateViralScript: no JSON in response')
+  return { scenesJson: match[0] }
+}
+
+export async function generateChatScript(params: {
+  topic: string
+  speakerAName: string
+  speakerARole: string
+  speakerBName: string
+  speakerBRole: string
+  durationSec: number
+  language: string
+}): Promise<StudioScriptResult> {
+  const { topic, speakerAName, speakerARole, speakerBName, speakerBRole, durationSec, language } = params
+  const langLabel  = language === 'vi' ? 'Vietnamese' : 'English'
+  const lineCount  = Math.max(10, Math.min(30, Math.round(durationSec / 6)))
+
+  const raw = await callLLM(`You are a podcast dialogue scriptwriter. Write a natural, engaging conversation.
+
+Language: ${langLabel}
+Topic: "${topic}"
+Speaker A: ${speakerAName} (${speakerARole})
+Speaker B: ${speakerBName} (${speakerBRole})
+Target: ${lineCount} exchanges total, ~${durationSec} seconds
+
+Dialogue rules:
+- Each line = one conversational turn (15–40 words)
+- Use "[A]" prefix for ${speakerAName}'s lines, "[B]" prefix for ${speakerBName}'s lines
+- Alternate roughly between A and B, but allow 2-3 consecutive lines for emphasis
+- Natural speech: filler words okay (ừ, à, thật ra, actually, well, you know)
+- Use ${langLabel} throughout
+- Include moments of agreement, pushback, storytelling, humor
+- "sceneKeywords": 3–5 English words evoking the mood/topic of that exchange
+  (e.g. "two people talking coffee shop warm" or "debate podium microphone")
+
+Output ONLY valid JSON:
+{
+  "videoTopic": "${topic}",
+  "globalImageStyle": "soft light warm podcast studio",
+  "scenes": [
+    { "text": "[A] ...", "sceneKeywords": "..." },
+    { "text": "[B] ...", "sceneKeywords": "..." }
+  ]
+}`, 2000)
+
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('generateChatScript: no JSON in response')
+  return { scenesJson: match[0] }
+}
+
+export async function generateEducationalScript(params: {
+  topic: string
+  targetAudience: string
+  durationSec: number
+  language: string
+}): Promise<StudioScriptResult> {
+  const { topic, targetAudience, durationSec, language } = params
+  const langLabel  = language === 'vi' ? 'Vietnamese' : 'English'
+  const sceneCount = Math.max(6, Math.min(18, Math.round(durationSec / 8)))
+
+  const raw = await callLLM(`You are an educational video scriptwriter. Write a clear, step-by-step explanation.
+
+Language: ${langLabel}
+Topic: "${topic}"
+Target audience: ${targetAudience || 'general audience'}
+Duration: ~${durationSec} seconds → ${sceneCount} segments
+Style: calm, clear, confident — think Khan Academy or Kurzgesagt
+
+Script rules:
+- Each segment = one clear idea or step (20–40 words)
+- Segment 1: hook — why this topic matters (1 relatable example or surprising fact)
+- Segments 2–N-1: explain step by step, one idea per segment, build on previous
+- Last segment: summary + takeaway
+- Use simple language appropriate for "${targetAudience || 'beginners'}"
+- Avoid jargon unless you immediately explain it
+- "sceneKeywords": 3–5 English words for background image (diagrams, objects, settings)
+- "visualMetaphor": a visual concept that illustrates this segment (e.g. "magnifying glass over DNA strand")
+
+Output ONLY valid JSON:
+{
+  "videoTopic": "${topic}",
+  "globalImageStyle": "clean educational dark blue gradient",
+  "scenes": [
+    { "text": "...", "sceneKeywords": "...", "visualMetaphor": "..." }
+  ]
+}`, 1500)
+
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('generateEducationalScript: no JSON in response')
+  return { scenesJson: match[0] }
+}
+
+export async function generateCinematicScript(params: {
+  topic: string
+  durationSec: number
+  language: string
+}): Promise<StudioScriptResult> {
+  const { topic, durationSec, language } = params
+  const langLabel  = language === 'vi' ? 'Vietnamese' : 'English'
+  const sceneCount = Math.max(5, Math.min(15, Math.round(durationSec / 10)))
+
+  const raw = await callLLM(`You are a documentary filmmaker and scriptwriter. Write a cinematic, emotionally resonant narration.
+
+Language: ${langLabel}
+Topic / Story: "${topic}"
+Duration: ~${durationSec} seconds → ${sceneCount} scenes
+Style: Ken Burns documentary, slow typewriter, poetic narration
+
+Script rules:
+- Each scene = one narrative beat (25–50 words, like documentary voiceover)
+- Scene 1: establish time/place/person with vivid imagery
+- Middle: journey, conflict, transformation — one scene per emotional beat
+- Final scene: reflection, resolution, or open-ended question
+- Tone: contemplative, intimate, beautiful — not corporate, not rushed
+- Use ${langLabel} — literary quality, not conversational
+- "sceneKeywords": 3–5 English words for cinematic background image
+  (e.g. "golden hour countryside silhouette" or "rain window city lights blur")
+- "visualMetaphor": cinematic shot description (e.g. "slow pan across empty chair at dining table")
+
+Output ONLY valid JSON:
+{
+  "videoTopic": "${topic}",
+  "globalImageStyle": "cinematic film grain warm vintage blur",
+  "scenes": [
+    { "text": "...", "sceneKeywords": "...", "visualMetaphor": "..." }
+  ]
+}`, 1500)
+
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('generateCinematicScript: no JSON in response')
+  return { scenesJson: match[0] }
+}
+
+export async function generateCustomScript(params: {
+  content: string
+  imageStyle?: string
+  durationSec: number
+  language: string
+}): Promise<StudioScriptResult> {
+  const { content, imageStyle, durationSec, language } = params
+  const langLabel  = language === 'vi' ? 'Vietnamese' : 'English'
+  const sceneCount = Math.max(5, Math.min(25, Math.round(durationSec / 7)))
+
+  const styleHint = imageStyle?.trim()
+    ? `Image style requested: "${imageStyle.trim()}" — use this to craft sceneKeywords for every scene.`
+    : 'Infer appropriate sceneKeywords from the content of each scene.'
+
+  const raw = await callLLM(`You are a video scene parser. Split the content below into video scenes WITHOUT rewriting or summarizing — preserve the original phrasing as closely as possible.
+
+Language: ${langLabel}
+Target scene count: ~${sceneCount} (adjust naturally based on content length)
+${styleHint}
+
+Rules:
+- Each scene = one natural paragraph or sentence group from the original content
+- Do NOT paraphrase, summarize, or change the meaning
+- Split at natural pause points (paragraph breaks, topic shifts, list items)
+- "sceneKeywords": 3–5 English words describing the ideal background image for that scene
+- "visualMetaphor": optional short description of a cinematic shot that matches the scene mood
+
+Output ONLY valid JSON:
+{
+  "videoTopic": "(infer from content)",
+  "globalImageStyle": "${imageStyle ?? 'cinematic atmospheric'}",
+  "scenes": [
+    { "text": "...", "sceneKeywords": "...", "visualMetaphor": "..." }
+  ]
+}
+
+Content to parse:
+${content.slice(0, 8000)}`, 2000)
+
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('generateCustomScript: no JSON in response')
+  return { scenesJson: match[0] }
+}
+
+// ─── AI JSON Normalizer ───────────────────────────────────────────────────────
+// Converts any unknown JSON format → standard { scenes: [...] }
+
+export async function normalizeWithAI(rawJson: string): Promise<string> {
+  const raw = await callLLM(`You are a JSON converter for a video generator tool.
+Convert the input JSON into this exact output format:
+{
+  "videoTopic": "string (optional)",
+  "globalImageStyle": "string (optional)",
+  "scenes": [
+    { "text": "...", "sceneKeywords": "...", "visualMetaphor": "..." }
+  ]
+}
+
+Conversion rules:
+- If input has a "messages" array: each message → one scene
+  - "text" must be formatted as "[A] message" for the first unique speaker, "[B] message" for the second
+  - Detect the speaker from any of these fields: "from", "sender", "role", "author", "name", "id"
+  - Map the first unique speaker value → A, the second → B
+  - Use "visualHint" or "emotion" fields as "sceneKeywords" if available
+- If input has another array (posts, items, steps, etc.): use that array as scenes
+- If input is a JSON array at the root level: treat each element as a scene
+- "text" is required and must be a non-empty string
+- "sceneKeywords" and "visualMetaphor" are optional — infer from context
+- Output ONLY valid JSON. No markdown fences, no explanation.
+
+Input JSON:
+${rawJson.slice(0, 6000)}`, 2048)
+
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('normalizeWithAI: no JSON object in response')
+  return match[0]
+}

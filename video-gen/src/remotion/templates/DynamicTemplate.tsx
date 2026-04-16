@@ -62,14 +62,117 @@ function Overlay({ spec }: { spec: MotionSpec }) {
   }
 }
 
+// ─── CountUp number animation ─────────────────────────────────────────────────
+
+type TextPart =
+  | { kind: 'text';   value: string }
+  | { kind: 'number'; raw: string; num: number; isPercent: boolean }
+
+/** Split text into plain-text and animatable-number parts.
+ *  Animates numbers >= 100 that are NOT a year (1900-2100). */
+function parseNumbers(text: string): TextPart[] {
+  const parts: TextPart[] = []
+  // Match standalone numbers: digits with optional thousand separators (.,)
+  const re = /\b(\d[\d.,]*\d|\d{2,})(%?)\b/g
+  let last = 0
+  let m: RegExpExecArray | null
+
+  while ((m = re.exec(text)) !== null) {
+    const rawNum = m[1].replace(/[.,]/g, '')
+    const num    = parseInt(rawNum, 10)
+    const isPct  = m[2] === '%'
+    if (isNaN(num)) continue
+    const isYear  = num >= 1900 && num <= 2100
+    const isSmall = num < 100 && !isPct
+    if (isYear || isSmall) continue
+
+    if (m.index > last) parts.push({ kind: 'text', value: text.slice(last, m.index) })
+    parts.push({ kind: 'number', raw: m[0], num, isPercent: isPct })
+    last = m.index + m[0].length
+  }
+  if (last < text.length) parts.push({ kind: 'text', value: text.slice(last) })
+  return parts.length ? parts : [{ kind: 'text', value: text }]
+}
+
+/** Slot-machine CountUp: spin rapidly then ease into the final value. */
+function CountUp({
+  to, localFrame, totalFrames, isPercent, color,
+}: {
+  to: number; localFrame: number; totalFrames: number; isPercent: boolean; color: string
+}) {
+  const clamp  = { extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const }
+  const spinEnd = Math.round(totalFrames * 0.52)
+
+  let value: number
+  if (localFrame <= spinEnd) {
+    // Spin phase: sine-based cycling (deterministic, no Math.random)
+    const t      = localFrame / Math.max(spinEnd, 1)
+    const cycles = 4
+    const sine   = Math.abs(Math.sin(t * Math.PI * cycles))
+    value = Math.round(sine * to)
+  } else {
+    // Landing phase: ease-out-back so it overshoots slightly then clicks in
+    const t = interpolate(localFrame, [spinEnd, totalFrames], [0, 1], {
+      ...clamp, easing: Easing.out(Easing.cubic),
+    })
+    value = Math.round(to * t)
+  }
+
+  const formatted = to >= 10000
+    ? value.toLocaleString('vi-VN')
+    : value.toString()
+
+  return (
+    <span style={{
+      color,
+      fontVariantNumeric: 'tabular-nums',
+      display:   'inline-block',
+      minWidth:  `${(to.toString().length + (isPercent ? 1 : 0))}ch`,
+      textAlign: 'right',
+    }}>
+      {formatted}{isPercent ? '%' : ''}
+    </span>
+  )
+}
+
+/** Render text with inline CountUp for any detected big numbers. */
+function RichText({
+  text, localFrame, countDuration, color, accentColor,
+}: {
+  text: string; localFrame: number; countDuration: number; color: string; accentColor: string
+}) {
+  const parts = parseNumbers(text)
+  const hasNumbers = parts.some(p => p.kind === 'number')
+  if (!hasNumbers) return <>{text}</>
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.kind === 'text') return <span key={i}>{part.value}</span>
+        return (
+          <CountUp
+            key={i}
+            to={part.num}
+            localFrame={localFrame}
+            totalFrames={countDuration}
+            isPercent={part.isPercent}
+            color={accentColor}
+          />
+        )
+      })}
+    </>
+  )
+}
+
 // ─── Accent wrapper ───────────────────────────────────────────────────────────
 
 function AccentText({
-  text, spec, style,
+  text, spec, style, localFrame = 0, countDuration = 45,
 }: {
   text: string; spec: MotionSpec; style: React.CSSProperties
+  localFrame?: number; countDuration?: number
 }) {
-  const { accentColor, accentStyle } = spec
+  const { accentColor, accentStyle, textColor } = spec
 
   let innerStyle: React.CSSProperties = {}
   switch (accentStyle) {
@@ -96,7 +199,15 @@ function AccentText({
 
   return (
     <div style={style}>
-      <span style={innerStyle}>{text}</span>
+      <span style={innerStyle}>
+        <RichText
+          text={text}
+          localFrame={localFrame}
+          countDuration={countDuration}
+          color={textColor}
+          accentColor={accentColor}
+        />
+      </span>
     </div>
   )
 }
@@ -104,9 +215,9 @@ function AccentText({
 // ─── Word-pop animation ───────────────────────────────────────────────────────
 
 function WordPopText({
-  text, localFrame, animFrames, spec,
+  text, localFrame, animFrames, spec, sceneDur,
 }: {
-  text: string; localFrame: number; animFrames: number; spec: MotionSpec
+  text: string; localFrame: number; animFrames: number; spec: MotionSpec; sceneDur: number
 }) {
   const words = text.split(' ')
   const framesPerWord = Math.max(5, animFrames / Math.max(words.length, 1))
@@ -126,13 +237,28 @@ function WordPopText({
       lineHeight: 1.25,
     }}>
       {words.map((word, wi) => {
-        const wf = localFrame - wi * framesPerWord
-        const op = interpolate(wf, [0, 5], [0, 1], clamp)
-        const sc = interpolate(wf, [0, 5, 9], [0, 1.4, 1.0], clamp)
+        const wf  = localFrame - wi * framesPerWord
+        const op  = interpolate(wf, [0, 5], [0, 1], clamp)
+        const sc  = interpolate(wf, [0, 5, 9], [0, 1.4, 1.0], clamp)
         const col = wi % 3 === 0 ? spec.textColor : wi % 3 === 1 ? spec.accentColor : spec.textColor
+
+        // Check if this word is a big number — if so, render CountUp instead
+        const cleanWord = word.replace(/[.,]/g, '')
+        const num = parseInt(cleanWord, 10)
+        const isYear = num >= 1900 && num <= 2100
+        const isBigNum = !isNaN(num) && num >= 100 && !isYear
+
         return (
           <span key={wi} style={{ opacity: op, transform: `scale(${sc})`, display: 'inline-block', color: col }}>
-            {word}
+            {isBigNum && wf > 0 ? (
+              <CountUp
+                to={num}
+                localFrame={Math.max(0, wf)}
+                totalFrames={Math.max(20, sceneDur - wi * framesPerWord)}
+                isPercent={word.endsWith('%')}
+                color={spec.accentColor}
+              />
+            ) : word}
           </span>
         )
       })}
@@ -173,14 +299,16 @@ function TypewriterText({
 // ─── Main animated text ───────────────────────────────────────────────────────
 
 function AnimatedText({
-  text, localFrame, spec, animFrames,
+  text, localFrame, spec, animFrames, sceneDur,
 }: {
-  text: string; localFrame: number; spec: MotionSpec; animFrames: number
+  text: string; localFrame: number; spec: MotionSpec; animFrames: number; sceneDur: number
 }) {
   const clamp = { extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const }
+  // CountUp runs for ~60% of scene duration, starting at scene start
+  const countDuration = Math.max(30, Math.round(sceneDur * 0.6))
 
   if (spec.textAnim === 'word-pop') {
-    return <WordPopText text={text} localFrame={localFrame} animFrames={animFrames} spec={spec} />
+    return <WordPopText text={text} localFrame={localFrame} animFrames={animFrames} spec={spec} sceneDur={sceneDur} />
   }
   if (spec.textAnim === 'typewriter') {
     const twFrames = Math.max(animFrames, text.length * 1.5)
@@ -235,7 +363,6 @@ function AnimatedText({
       const ry = isGlitching ? Math.cos(localFrame * 79.3) * 4 : 0
       opacity = interpolate(localFrame, [0, 8], [0, 1], clamp)
       transform = `translate(${rx}px, ${ry}px)`
-      // Add split-color glitch effect on the wrapper
       const splitStyle: React.CSSProperties = {
         ...baseStyle,
         opacity,
@@ -244,21 +371,27 @@ function AnimatedText({
           ? `${Math.sin(localFrame * 99) * 6}px 0 ${spec.accentColor}88, ${Math.cos(localFrame * 99) * -6}px 0 #0ff8`
           : 'none',
       }
-      return <AccentText text={text} spec={spec} style={splitStyle} />
+      return <AccentText text={text} spec={spec} style={splitStyle} localFrame={localFrame} countDuration={countDuration} />
     }
   }
 
   return (
-    <AccentText text={text} spec={spec} style={{ ...baseStyle, opacity, transform }} />
+    <AccentText
+      text={text}
+      spec={spec}
+      style={{ ...baseStyle, opacity, transform }}
+      localFrame={localFrame}
+      countDuration={countDuration}
+    />
   )
 }
 
 // ─── Single segment scene ─────────────────────────────────────────────────────
 
 function SegmentScene({
-  seg, localFrame, spec, animFrames,
+  seg, localFrame, spec, animFrames, sceneDur,
 }: {
-  seg: Segment; localFrame: number; spec: MotionSpec; animFrames: number
+  seg: Segment; localFrame: number; spec: MotionSpec; animFrames: number; sceneDur: number
 }) {
   return (
     <AbsoluteFill style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -278,7 +411,7 @@ function SegmentScene({
 
       {/* Text */}
       <div style={{ width: '100%', padding: '0' }}>
-        <AnimatedText text={seg.text} localFrame={localFrame} spec={spec} animFrames={animFrames} />
+        <AnimatedText text={seg.text} localFrame={localFrame} spec={spec} animFrames={animFrames} sceneDur={sceneDur} />
       </div>
     </AbsoluteFill>
   )
@@ -364,6 +497,7 @@ export const DynamicTemplate: React.FC<VideoProps> = ({ segments, motionSpec }) 
               localFrame={localFrame}
               spec={spec}
               animFrames={animFrames}
+              sceneDur={dur}
             />
           </AbsoluteFill>
         )

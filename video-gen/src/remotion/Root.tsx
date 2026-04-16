@@ -11,7 +11,7 @@ import {
   RedactedTemplate, SportsTemplate,
   TikTokCaptionTemplate, HookTemplate, WordPopTemplate,
   DynamicTemplate, ChatBubbleTemplate,
-  ParticleTextTemplate,
+  ParticleTextTemplate, MatrixRainTemplate, GalaxyTemplate,
 } from './templates'
 
 const COMPONENTS: Record<string, React.FC<any>> = {
@@ -30,6 +30,8 @@ const COMPONENTS: Record<string, React.FC<any>> = {
   dynamic:      DynamicTemplate,
   chatbubble:   ChatBubbleTemplate,
   particletext: ParticleTextTemplate,
+  matrixrain:   MatrixRainTemplate,
+  galaxy:       GalaxyTemplate,
 }
 
 export const RemotionRoot = () => (

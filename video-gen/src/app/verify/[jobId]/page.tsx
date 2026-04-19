@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, use, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Player } from '@remotion/player'
+import type { PlayerRef } from '@remotion/player'
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -15,7 +16,7 @@ import {
   DynamicTemplate, ChatBubbleTemplate,
 } from '@/remotion/templates'
 import { TEMPLATES } from '@/lib/template-config'
-import type { Job, Segment, TTSProvider, MotionSpec } from '@/types'
+import type { Job, Segment, TTSProvider, MotionSpec, SceneEffect, SubtitleEffect } from '@/types'
 import { DEFAULT_MOTION_SPEC } from '@/types'
 
 const COMPONENTS: Record<string, React.FC<any>> = {
@@ -315,6 +316,206 @@ function StylePanel({
   )
 }
 
+// ─── Scene effect catalog ─────────────────────────────────────────────────────
+
+const SCENE_EFFECTS: { id: SceneEffect; icon: string; label: string }[] = [
+  { id: 'default',          icon: '📄', label: 'Mặc định'    },
+  { id: 'bold-title',       icon: '🅰',  label: 'Bold Title'  },
+  { id: 'quote-card',       icon: '💬', label: 'Quote'       },
+  { id: 'minimal-text',     icon: '✨', label: 'Minimal'     },
+  { id: 'neon-glow',        icon: '💡', label: 'Neon'        },
+  { id: 'typewriter-focus', icon: '⌨',  label: 'Typewriter'  },
+  { id: 'word-by-word',     icon: '📢', label: 'Word x Word' },
+  { id: 'image-full',       icon: '🌅', label: 'Ảnh Full'    },
+  { id: 'image-side',       icon: '◧',  label: 'Ảnh Bên'    },
+  { id: 'image-top',        icon: '⬆',  label: 'Ảnh Trên'   },
+  { id: 'caption-bottom',   icon: '🎬', label: 'Caption'     },
+  { id: 'lower-third',      icon: '📺', label: 'Lower Third' },
+  { id: 'split-screen',     icon: '⬜', label: 'Split'       },
+  { id: 'counting-number',  icon: '🔢', label: 'Đếm Số'      },
+  { id: 'chart-bar',        icon: '📊', label: 'Bar Chart'   },
+  { id: 'progress-ring',    icon: '⭕', label: 'Progress'    },
+  { id: 'karaoke',          icon: '🎤', label: 'Karaoke'     },
+]
+
+const SUBTITLE_EFFECTS: { id: SubtitleEffect; icon: string; label: string }[] = [
+  { id: 'fade-bar',      icon: '▬', label: 'Bar Tối'       },
+  { id: 'slide-up',      icon: '⬆', label: 'Trượt Lên'    },
+  { id: 'typewriter',    icon: '⌨', label: 'Typewriter'    },
+  { id: 'word-highlight',icon: '🖊', label: 'Highlight Từ' },
+  { id: 'karaoke',        icon: '🎤', label: 'Karaoke'       },
+  { id: 'karaoke-bounce', icon: '🎵', label: 'Karaoke Bounce' },
+  { id: 'pill-badge',    icon: '💊', label: 'Pill Badge'   },
+  { id: 'neon-caption',  icon: '💡', label: 'Neon'         },
+  { id: 'outline-pop',   icon: '🔤', label: 'Outline Pop'  },
+  { id: 'none',          icon: '✕',  label: 'Ẩn phụ đề'   },
+]
+
+// ─── Scene effect picker ──────────────────────────────────────────────────────
+
+function SceneEffectPicker({ value, onChange }: { value: string; onChange: (v: SceneEffect) => void }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
+        Kiểu scene
+      </label>
+      <div className="grid grid-cols-4 gap-1.5">
+        {SCENE_EFFECTS.map(e => (
+          <button
+            key={e.id}
+            onClick={() => onChange(e.id)}
+            title={e.label}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all ${
+              value === e.id
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+            }`}
+          >
+            <span className="text-base">{e.icon}</span>
+            <span className="text-[10px] font-medium leading-tight">{e.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Subtitle effect picker ───────────────────────────────────────────────────
+
+function SubtitleEffectPicker({ value, onChange }: { value: string; onChange: (v: SubtitleEffect) => void }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
+        Hiệu ứng phụ đề
+      </label>
+      <div className="grid grid-cols-3 gap-1.5">
+        {SUBTITLE_EFFECTS.map(e => (
+          <button
+            key={e.id}
+            onClick={() => onChange(e.id)}
+            title={e.label}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-left text-xs transition-all ${
+              value === e.id
+                ? 'border-purple-500 bg-purple-50 text-purple-700'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+            }`}
+          >
+            <span>{e.icon}</span>
+            <span className="font-medium truncate">{e.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Image import panel ───────────────────────────────────────────────────────
+
+function ImageImportPanel({ segment, onImageChanged }: {
+  segment: Segment
+  onImageChanged: (url: string) => void
+}) {
+  const [tab, setTab]           = useState<'search' | 'url'>('search')
+  const [urlInput, setUrlInput] = useState('')
+  const [query, setQuery]       = useState('')
+  const [results, setResults]   = useState<{ url: string; thumb: string }[]>([])
+  const [searching, setSearching] = useState(false)
+
+  const handleSearch = async () => {
+    if (!query.trim()) return
+    setSearching(true)
+    try {
+      const res  = await fetch(`/api/images/search?q=${encodeURIComponent(query)}&count=8`)
+      const data = await res.json()
+      setResults(data.results ?? [])
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const applyUrl = () => {
+    if (urlInput.trim()) { onImageChanged(urlInput.trim()); setUrlInput('') }
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Ảnh nền</label>
+
+      {/* Current image */}
+      {segment.imageUrl && (
+        <div className="mb-2 relative rounded-lg overflow-hidden" style={{ height: 80 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={segment.imageUrl} alt="" className="w-full h-full object-cover" />
+          <button
+            onClick={() => onImageChanged('')}
+            className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-black/80"
+          >✕</button>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-2">
+        {(['search', 'url'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`flex-1 py-1 text-xs font-semibold transition-colors ${
+              tab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {t === 'search' ? '🔍 Tìm ảnh' : '🔗 URL'}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'url' ? (
+        <div className="flex gap-2">
+          <input
+            type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && applyUrl()}
+            placeholder="https://..."
+            className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={applyUrl} disabled={!urlInput.trim()}
+            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >Dùng</button>
+        </div>
+      ) : (
+        <div>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text" value={query} onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              placeholder="Tìm ảnh... (vd: city, mountain)"
+              className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={handleSearch} disabled={searching || !query.trim()}
+              className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50 flex-shrink-0"
+            >
+              {searching ? '...' : '🔍'}
+            </button>
+          </div>
+          {results.length > 0 && (
+            <div className="grid grid-cols-4 gap-1">
+              {results.map((r, i) => (
+                <button
+                  key={i}
+                  onClick={() => onImageChanged(r.url)}
+                  className="relative rounded overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all"
+                  style={{ aspectRatio: '16/9' }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={r.thumb} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Edit panel ───────────────────────────────────────────────────────────────
 
 function EditPanel({
@@ -324,19 +525,25 @@ function EditPanel({
   job: Job
   onSegmentUpdated: (updated: Segment) => void
 }) {
-  const [text, setText]         = useState('')
-  const [subtitle, setSubtitle] = useState('')
-  const [saving, setSaving]     = useState(false)
-  const [ttsLoading, setTtsLoading] = useState(false)
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [text, setText]               = useState('')
+  const [subtitle, setSubtitle]       = useState('')
+  const [duration, setDuration]       = useState(segment?.duration ?? 5)
+  const [saving, setSaving]           = useState(false)
+  const [ttsLoading, setTtsLoading]   = useState(false)
+  const [audioUrl, setAudioUrl]       = useState<string | null>(null)
   const [ttsProvider, setTtsProvider] = useState<TTSProvider>(job.ttsProvider as TTSProvider)
   const [ttsVoiceId, setTtsVoiceId]   = useState(job.ttsVoiceId)
+  const [sceneEffect, setSceneEffect]         = useState<SceneEffect>((segment?.sceneEffect ?? 'default') as SceneEffect)
+  const [subtitleEffect, setSubtitleEffect]   = useState<SubtitleEffect>((segment?.subtitleEffect ?? 'none') as SubtitleEffect)
 
   useEffect(() => {
     if (segment) {
       setText(segment.text)
       setSubtitle(segment.subtitle)
+      setDuration(segment.duration)
       setAudioUrl(segment.audioUrl ?? null)
+      setSceneEffect((segment.sceneEffect ?? 'default') as SceneEffect)
+      setSubtitleEffect((segment.subtitleEffect ?? 'none') as SubtitleEffect)
     }
   }, [segment?.id])
 
@@ -352,11 +559,32 @@ function EditPanel({
       if (res.ok) {
         const updated = await res.json()
         onSegmentUpdated(updated)
+      } else {
+        console.error('[saveSegment] API error:', await res.json().catch(() => res.status))
       }
     } finally {
       setSaving(false)
     }
   }, [segment])
+
+  const handleSceneEffectChange = (effect: SceneEffect) => {
+    setSceneEffect(effect)
+    // Optimistic update so preview changes immediately
+    if (segment) onSegmentUpdated({ ...segment, sceneEffect: effect })
+    saveSegment({ sceneEffect: effect } as any)
+  }
+
+  const handleSubtitleEffectChange = (effect: SubtitleEffect) => {
+    setSubtitleEffect(effect)
+    // Optimistic update so preview changes immediately
+    if (segment) onSegmentUpdated({ ...segment, subtitleEffect: effect })
+    saveSegment({ subtitleEffect: effect } as any)
+  }
+
+  const handleImageChange = (url: string) => {
+    saveSegment({ imageUrl: url } as any)
+    onSegmentUpdated({ ...segment!, imageUrl: url })
+  }
 
   const handleTts = async () => {
     if (!segment) return
@@ -376,7 +604,13 @@ function EditPanel({
       const data = await res.json()
       if (res.ok) {
         setAudioUrl(data.audioUrl)
-        onSegmentUpdated({ ...segment, audioUrl: data.audioUrl })
+        const updated: Segment = {
+          ...segment,
+          audioUrl: data.audioUrl,
+          ...(data.durationSec != null ? { duration: data.durationSec } : {}),
+        }
+        if (data.durationSec != null) setDuration(data.durationSec)
+        onSegmentUpdated(updated)
       }
     } finally {
       setTtsLoading(false)
@@ -395,38 +629,63 @@ function EditPanel({
   }
 
   return (
-    <div data-testid="edit-panel" className="space-y-5">
-      <div>
-        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-          Nội dung segment
-        </label>
-        <textarea
-          data-testid="segment-text"
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onBlur={() => saveSegment({ text })}
-          rows={5}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-        />
-      </div>
+    <div data-testid="edit-panel" className="space-y-4">
 
-      <div>
-        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-          Phụ đề
-        </label>
-        <input
-          type="text"
-          value={subtitle}
-          onChange={e => setSubtitle(e.target.value)}
-          onBlur={() => saveSegment({ subtitle })}
-          placeholder="Phụ đề hiển thị..."
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
+      {/* Scene effect picker */}
+      <SceneEffectPicker value={sceneEffect} onChange={handleSceneEffectChange} />
 
-      <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2">
-        Thời lượng ước tính: <strong>{segment.duration.toFixed(1)}s</strong>
-        {saving && <span className="ml-2 text-blue-500">Đang lưu...</span>}
+      {/* Image import */}
+      <ImageImportPanel segment={segment} onImageChanged={handleImageChange} />
+
+      <div className="border-t pt-4 space-y-4">
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+            Nội dung segment
+          </label>
+          <textarea
+            data-testid="segment-text"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onBlur={() => saveSegment({ text })}
+            rows={4}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+            Phụ đề
+          </label>
+          <input
+            type="text"
+            value={subtitle}
+            onChange={e => setSubtitle(e.target.value)}
+            onBlur={() => saveSegment({ subtitle })}
+            placeholder="Phụ đề hiển thị..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Subtitle effect picker */}
+        <SubtitleEffectPicker value={subtitleEffect} onChange={handleSubtitleEffectChange} />
+
+        <div className="flex items-center gap-2 bg-gray-50 rounded px-3 py-2">
+          <label className="text-xs text-gray-500 flex-1">
+            Thời lượng (giây)
+            {saving && <span className="ml-2 text-blue-500">Đang lưu...</span>}
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={60}
+            step={0.5}
+            value={duration}
+            onChange={e => setDuration(parseFloat(e.target.value) || 1)}
+            onBlur={() => saveSegment({ duration } as any)}
+            className="w-20 border border-gray-300 rounded px-2 py-1 text-xs text-center font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <span className="text-xs text-gray-400">s</span>
+        </div>
       </div>
 
       {/* TTS */}
@@ -473,6 +732,11 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
   const [motionSpec, setMotionSpec]   = useState<MotionSpec>(DEFAULT_MOTION_SPEC)
   const [rightTab, setRightTab]       = useState<'edit' | 'style'>('style')
   const saveSpecTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Player ref for auto-seek
+  const playerRef = useRef<PlayerRef>(null)
+
+  // Full-video key (used when no segment is selected)
+  const playerInputKey = segments.map(s => `${s.id}:${s.sceneEffect ?? ''}:${s.subtitleEffect ?? ''}:${s.imageUrl ?? ''}:${s.text}:${s.duration}`).join('|')
 
   // Chat
   const [chatOpen, setChatOpen]       = useState(false)
@@ -632,7 +896,11 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
           }),
         })
         const data = await res.json()
-        if (res.ok) handleSegmentUpdated({ ...seg, audioUrl: data.audioUrl })
+        if (res.ok) handleSegmentUpdated({
+          ...seg,
+          audioUrl: data.audioUrl,
+          ...(data.durationSec != null ? { duration: data.durationSec } : {}),
+        })
       } catch { /* skip failed segment */ }
       done++
       setAudioGenProgress(Math.round((done / missing.length) * 100))
@@ -741,9 +1009,19 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
   const totalDuration = segments.reduce((s, seg) => s + seg.duration, 0)
   const totalFrames   = Math.max(30, Math.ceil(totalDuration * templateConfig.fps))
 
-  const missingAudio  = segments.filter(s => !s.audioUrl).length
-  const missingImages = segments.filter(s => !s.imageUrl).length
-  const previewReady  = missingAudio === 0
+  // Single-segment preview: when a segment is selected, show only that one (looped)
+  const previewSegments = selectedSegment ? [selectedSegment] : segments
+  const previewDuration = selectedSegment
+    ? Math.max(30, Math.ceil(selectedSegment.duration * templateConfig.fps))
+    : totalFrames
+
+  // Key: changes on segment switch, effect/content change, or full-video key change
+  const playerKey = selectedSegment
+    ? `seg-${selectedSegment.id}:${selectedSegment.sceneEffect ?? ''}:${selectedSegment.subtitleEffect ?? ''}:${selectedSegment.imageUrl ?? ''}:${selectedSegment.text}:${selectedSegment.duration}`
+    : `full-${activeTemplate}-${playerInputKey}`
+
+  const missingAudio = segments.filter(s => !s.audioUrl).length
+  const previewReady = missingAudio === 0
 
   if (!job) {
     return (
@@ -816,9 +1094,25 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
             </button>
           </div>
 
+          {/* Preview all button */}
+          <div className="px-3 pb-2 pt-1">
+            <button
+              onClick={() => setSelectedSegment(null)}
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                selectedSegment === null
+                  ? 'border-green-500 bg-green-50 text-green-700'
+                  : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              }`}
+            >
+              <span>▶</span>
+              <span>Preview toàn bộ video</span>
+              {selectedSegment === null && <span className="ml-auto text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">Đang xem</span>}
+            </button>
+          </div>
+
           <div
             data-testid="segment-list"
-            className="flex-1 overflow-y-auto p-3 space-y-2"
+            className="flex-1 overflow-y-auto p-3 pt-0 space-y-2"
           >
             <DndContext
               sensors={sensors}
@@ -850,6 +1144,25 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
 
         {/* Center panel — Player */}
         <main className="flex-1 flex flex-col overflow-hidden bg-gray-900">
+          {/* Segment indicator bar */}
+          <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700 flex-shrink-0">
+            {selectedSegment ? (
+              <>
+                <span className="text-xs text-blue-300 font-medium">
+                  Đang xem: Segment #{segments.findIndex(s => s.id === selectedSegment.id) + 1} · {selectedSegment.duration.toFixed(1)}s · lặp vô tận
+                </span>
+                <button
+                  onClick={() => setSelectedSegment(null)}
+                  className="text-xs text-gray-400 hover:text-white transition-colors"
+                >
+                  Xem toàn bộ video →
+                </button>
+              </>
+            ) : (
+              <span className="text-xs text-gray-400">Toàn bộ video · {totalDuration.toFixed(1)}s · chọn segment để xem riêng</span>
+            )}
+          </div>
+
           {/* Player */}
           <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
             <div
@@ -861,58 +1174,24 @@ export default function VerifyPage({ params }: { params: Promise<{ jobId: string
               }}
             >
               <Player
-                key={activeTemplate}
+                ref={playerRef}
+                key={playerKey}
                 component={ActiveComponent}
-                inputProps={{ segments, template: activeTemplate, motionSpec }}
-                durationInFrames={totalFrames}
+                inputProps={{ segments: previewSegments, template: activeTemplate, motionSpec }}
+                durationInFrames={previewDuration}
                 compositionWidth={templateConfig.width}
                 compositionHeight={templateConfig.height}
                 fps={templateConfig.fps}
                 style={{ width: '100%', height: '100%' }}
-                numberOfSharedAudioTags={segments.length + 2}
+                numberOfSharedAudioTags={previewSegments.length + 2}
                 controls
+                loop={!!selectedSegment}
               />
 
-              {/* Overlay khi chưa đủ điều kiện preview */}
-              {!previewReady && (
-                <div
-                  className="absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-lg"
-                  style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
-                >
-                  <div className="text-center px-6">
-                    <div className="text-3xl mb-3">🎬</div>
-                    <p className="text-white font-semibold text-sm mb-1">
-                      Preview chưa sẵn sàng
-                    </p>
-                    <p className="text-gray-400 text-xs leading-relaxed">
-                      Video thật sẽ khác — cần đủ audio &amp; ảnh mới phản ánh đúng chất lượng.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 text-xs w-48">
-                    {missingAudio > 0 && (
-                      <div className="flex items-center justify-between bg-red-900/60 text-red-300 px-3 py-1.5 rounded">
-                        <span>Thiếu audio</span>
-                        <span className="font-bold">{missingAudio}/{segments.length}</span>
-                      </div>
-                    )}
-                    {missingImages > 0 && (
-                      <div className="flex items-center justify-between bg-yellow-900/60 text-yellow-300 px-3 py-1.5 rounded">
-                        <span>Ảnh (có sau render)</span>
-                        <span className="font-bold">{missingImages}/{segments.length}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={handleGenerateAllAudio}
-                    disabled={audioGenLoading}
-                    className="px-4 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors"
-                  >
-                    {audioGenLoading
-                      ? `Đang tạo audio... ${audioGenProgress}%`
-                      : `Tạo audio (${missingAudio} segment)`}
-                  </button>
+              {/* Warning nhỏ bên dưới player khi thiếu audio/ảnh */}
+              {!previewReady && missingAudio > 0 && (
+                <div className="absolute bottom-10 left-2 right-2 flex items-center justify-between bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg pointer-events-none">
+                  <span>Preview không có âm thanh — thiếu audio {missingAudio}/{segments.length} segment</span>
                 </div>
               )}
             </div>

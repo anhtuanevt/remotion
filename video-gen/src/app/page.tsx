@@ -9,10 +9,11 @@ import type { TTSProvider } from '@/types'
 // ─── Duration options ─────────────────────────────────────────────────────────
 
 const DURATIONS = [
-  { sec: 30,  label: '30s'    },
-  { sec: 60,  label: '1 min'  },
-  { sec: 120, label: '2 min'  },
-  { sec: 180, label: '3 min'  },
+  { sec: 0,   label: 'AI tự quyết' },
+  { sec: 30,  label: '30s'         },
+  { sec: 60,  label: '1 min'       },
+  { sec: 120, label: '2 min'       },
+  { sec: 180, label: '3 min'       },
 ]
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ export default function HomePage() {
   const [speakerBRole,   setSpeakerBRole]   = useState('Guest')
   const [targetAudience, setTargetAudience] = useState('người mới bắt đầu')
   const [imageStyle,     setImageStyle]     = useState('')
-  const [durationSec,    setDurationSec]    = useState(60)
+  const [durationSec,    setDurationSec]    = useState(0)
   const [language,       setLanguage]       = useState('vi')
   const [ttsProvider,    setTtsProvider]    = useState<TTSProvider>('edge')
   const [ttsVoiceId,     setTtsVoiceId]     = useState(DEFAULT_VBEE_VOICE)
@@ -50,7 +51,7 @@ export default function HomePage() {
         studioId,
         topic: topic.trim(),
         language,
-        durationSec,
+        ...(durationSec > 0 ? { durationSec } : {}),
         ttsProvider,
         ttsVoiceId,
       }
@@ -245,7 +246,7 @@ export default function HomePage() {
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Độ dài</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
               {DURATIONS.map(d => (
                 <button
                   key={d.sec}

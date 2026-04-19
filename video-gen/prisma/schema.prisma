@@ -34,7 +34,9 @@ model Segment {
   audioCacheKey String?
   imageUrl      String?
   imagePrompt   String?
-  createdAt     DateTime @default(now())
+  sceneEffect     String?
+  subtitleEffect  String?
+  createdAt       DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 

@@ -1,3 +1,34 @@
+export type SubtitleEffect =
+  | 'none'
+  | 'fade-bar'
+  | 'slide-up'
+  | 'typewriter'
+  | 'word-highlight'
+  | 'pill-badge'
+  | 'neon-caption'
+  | 'outline-pop'
+  | 'karaoke'
+  | 'karaoke-bounce'
+
+export type SceneEffect =
+  | 'default'
+  | 'bold-title'
+  | 'quote-card'
+  | 'minimal-text'
+  | 'neon-glow'
+  | 'typewriter-focus'
+  | 'word-by-word'
+  | 'image-full'
+  | 'image-side'
+  | 'image-top'
+  | 'caption-bottom'
+  | 'lower-third'
+  | 'split-screen'
+  | 'counting-number'
+  | 'chart-bar'
+  | 'progress-ring'
+  | 'karaoke'
+
 export type TemplateId =
   | 'news' | 'edu' | 'podcast' | 'tech' | 'story'
   | 'minimal' | 'kids' | 'documentary' | 'social' | 'whiteboard'
@@ -82,6 +113,8 @@ export interface Segment {
   audioCacheKey?: string
   imageUrl?: string
   imagePrompt?: string
+  sceneEffect?: SceneEffect
+  subtitleEffect?: SubtitleEffect
 }
 
 export interface Job {

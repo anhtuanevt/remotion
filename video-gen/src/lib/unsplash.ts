@@ -1,5 +1,12 @@
-const imageCache     = new Map<string, string>()
-const translateCache = new Map<string, string>()
+const imageCache      = new Map<string, string>()
+const imagesCache     = new Map<string, ImageResult[]>()
+const translateCache  = new Map<string, string>()
+
+export interface ImageResult {
+  url:   string
+  thumb: string
+  alt:   string
+}
 
 // Seed ổn định cho Picsum fallback
 function hashSeed(text: string): string {
@@ -71,5 +78,51 @@ export async function searchImage(prompt: string): Promise<string> {
     const url = picsumUrl(englishQuery)
     imageCache.set(prompt, url)
     return url
+  }
+}
+
+export async function searchImages(prompt: string, count = 8): Promise<ImageResult[]> {
+  const cacheKey = `${prompt}:${count}`
+  if (imagesCache.has(cacheKey)) return imagesCache.get(cacheKey)!
+
+  const englishQuery = await translateToEnglish(prompt)
+
+  const picsumFallback = (): ImageResult[] =>
+    Array.from({ length: count }, (_, i) => {
+      const seed = hashSeed(englishQuery + i)
+      return {
+        url:   `https://picsum.photos/seed/${seed}/1920/1080`,
+        thumb: `https://picsum.photos/seed/${seed}/400/225`,
+        alt:   prompt,
+      }
+    })
+
+  if (!process.env.UNSPLASH_ACCESS_KEY) {
+    const results = picsumFallback()
+    imagesCache.set(cacheKey, results)
+    return results
+  }
+
+  try {
+    const q   = encodeURIComponent(englishQuery.slice(0, 80))
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${q}&per_page=${count}&orientation=landscape`,
+      { headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` } },
+    )
+    if (!res.ok) throw new Error(`Unsplash ${res.status}`)
+    const data = await res.json()
+    const results: ImageResult[] = (data.results ?? []).map((r: any) => ({
+      url:   r.urls.regular,
+      thumb: r.urls.small,
+      alt:   r.alt_description ?? prompt,
+    }))
+    const final = results.length > 0 ? results : picsumFallback()
+    imagesCache.set(cacheKey, final)
+    return final
+  } catch (err) {
+    console.warn('[unsplash] searchImages failed:', err)
+    const results = picsumFallback()
+    imagesCache.set(cacheKey, results)
+    return results
   }
 }

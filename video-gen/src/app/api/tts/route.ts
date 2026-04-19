@@ -13,15 +13,19 @@ const Body = z.object({
 export async function POST(req: Request) {
   try {
     const body = Body.parse(await req.json())
-    const { audioUrl, cacheKey } = await generateAudio({
+    const { audioUrl, cacheKey, durationSec } = await generateAudio({
       text: body.text, provider: body.provider as any,
       voiceId: body.voiceId, segmentId: body.segmentId, language: body.language,
     })
     await db.segment.update({
       where: { id: body.segmentId },
-      data: { audioUrl, audioCacheKey: cacheKey },
+      data: {
+        audioUrl,
+        audioCacheKey: cacheKey,
+        ...(durationSec != null ? { duration: durationSec } : {}),
+      },
     })
-    return Response.json({ audioUrl })
+    return Response.json({ audioUrl, durationSec })
   } catch (err: any) {
     console.error('[/api/tts]', err)
     return Response.json({ error: err.message }, { status: 500 })
